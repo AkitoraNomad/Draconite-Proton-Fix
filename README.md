@@ -2,8 +2,6 @@
 
 如果你在 Linux 上通过 Steam 启动《龙晶》，进主菜单时弹出「无法完成文件验证」，详情是 `WORKER_PRIORITY_FAILED (OS 87.0)`，可以用这个社区版 Proton 修复。
 
-下载地址【发布时替换为 ZIP 链接】
-
 1. 下载并完整解压 **Draconite-Proton-Fix-x86_64.zip**。
 2. 在解压出来的文件夹中打开终端，运行 `bash install.sh`。Steam Deck 请在桌面模式下操作。脚本会复用本机的原版 GE-Proton 11-12 x86-64，或者自动从 GE 的 GitHub 发布页下载约 541 MiB 的原版包。
 3. 完全退出并重启 Steam。在《龙晶》→ 属性 → 兼容性里勾选「强制使用特定的 Steam Play 兼容工具」，选 **`Draconite-Proton-GE-11-12`**，然后点「玩 龙晶」。
