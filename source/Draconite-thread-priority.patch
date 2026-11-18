@@ -1,0 +1,78 @@
+--- a/dlls/kernelbase/thread.c
++++ b/dlls/kernelbase/thread.c
+@@ -612,12 +612,75 @@
+ }
+ 
+ 
++#define THREAD_MODE_BACKGROUND_BEGIN 0x10000
++#define THREAD_MODE_BACKGROUND_END   0x20000
++
++static DWORD background_priority_slot;
++
++static BOOL WINAPI alloc_background_priority_slot( INIT_ONCE *once, void *param, void **context )
++{
++    background_priority_slot = TlsAlloc();
++    return background_priority_slot != TLS_OUT_OF_INDEXES;
++}
++
++static BOOL set_background_thread_priority( HANDLE thread, INT mode )
++{
++    static INIT_ONCE init_once = INIT_ONCE_STATIC_INIT;
++    DWORD last_error = GetLastError();
++    void *saved_priority;
++    INT priority;
++
++    if (thread != GetCurrentThread() && GetThreadId( thread ) != GetCurrentThreadId())
++    {
++        SetLastError( ERROR_INVALID_PARAMETER );
++        return FALSE;
++    }
++    if (!InitOnceExecuteOnce( &init_once, alloc_background_priority_slot, NULL, NULL )) return FALSE;
++    saved_priority = TlsGetValue( background_priority_slot );
++
++    if (mode == THREAD_MODE_BACKGROUND_BEGIN)
++    {
++        if (saved_priority)
++        {
++            SetLastError( ERROR_THREAD_MODE_ALREADY_BACKGROUND );
++            return FALSE;
++        }
++
++        priority = GetThreadPriority( GetCurrentThread() );
++        if (priority == THREAD_PRIORITY_ERROR_RETURN) return FALSE;
++        /* Offset the saved value so normal priority does not look like an empty TLS slot. */
++        if (!TlsSetValue( background_priority_slot, (void *)(INT_PTR)(priority + 64) )) return FALSE;
++        if (!SetThreadPriority( thread, min( priority, THREAD_PRIORITY_LOWEST ) ))
++        {
++            DWORD error = GetLastError();
++            TlsSetValue( background_priority_slot, NULL );
++            SetLastError( error );
++            return FALSE;
++        }
++    }
++    else
++    {
++        if (!saved_priority)
++        {
++            SetLastError( ERROR_THREAD_MODE_NOT_BACKGROUND );
++            return FALSE;
++        }
++        if (!SetThreadPriority( thread, (INT)(INT_PTR)saved_priority - 64 )) return FALSE;
++        TlsSetValue( background_priority_slot, NULL );
++    }
++
++    SetLastError( last_error );
++    return TRUE;
++}
++
+ /**********************************************************************
+  *           SetThreadPriority   (kernelbase.@)
+  */
+ BOOL WINAPI DECLSPEC_HOTPATCH SetThreadPriority( HANDLE thread, INT priority )
+ {
+     DWORD prio = priority;
++    if (priority == THREAD_MODE_BACKGROUND_BEGIN || priority == THREAD_MODE_BACKGROUND_END)
++        return set_background_thread_priority( thread, priority );
+     return set_ntstatus( NtSetInformationThread( thread, ThreadBasePriority, &prio, sizeof(prio) ));
+ }
+ 
