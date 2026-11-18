@@ -9,13 +9,18 @@ mkdir -- "$output_dir/src" "$output_dir/build"
 tar -xzf "$source_dir/wine-fda79a5.tar.gz" --strip-components=1 -C "$output_dir/src"
 patch -d "$output_dir/src" -p1 < "$source_dir/ge-version-info.patch"
 patch -d "$output_dir/src" -p1 < "$source_dir/Draconite-thread-priority.patch"
+patch -d "$output_dir/src" -p1 < "$source_dir/Draconite-font-fallback.patch"
 (
     cd "$output_dir/src"
-    ./autogen.sh
+    XDG_CACHE_HOME="$output_dir/cache" ./autogen.sh
 )
 (
     cd "$output_dir/build"
     ../src/configure --enable-archs=i386,x86_64 --disable-tests --without-x --without-wayland
-    make -j"${JOBS:-4}" dlls/kernelbase/x86_64-windows/kernelbase.dll
+    make -j"${JOBS:-4}" \
+        dlls/kernelbase/x86_64-windows/kernelbase.dll \
+        dlls/dwrite/x86_64-windows/dwrite.dll
 )
-printf '%s\n' "$output_dir/build/dlls/kernelbase/x86_64-windows/kernelbase.dll"
+printf '%s\n' \
+    "$output_dir/build/dlls/kernelbase/x86_64-windows/kernelbase.dll" \
+    "$output_dir/build/dlls/dwrite/x86_64-windows/dwrite.dll"
